@@ -1,0 +1,835 @@
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Serviços Pendentes</title>
+
+  <!-- Supabase JS (UMD) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    :root{
+      --card: rgba(255,255,255,.92);
+      --card2: rgba(255,255,255,.86);
+      --border: rgba(0,0,0,.12);
+      --shadow: 0 12px 40px rgba(0,0,0,.18);
+      --radius: 16px;
+    }
+
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      color:#111;
+      min-height:100vh;
+
+      /* FUNDO (marca de água) */
+      background:
+        linear-gradient(rgba(255,255,255,.70), rgba(255,255,255,.78)),
+        url("fundo_metro.jpg");
+      background-size: cover;
+      background-position: right center;
+      background-attachment: fixed;
+    }
+
+    .wrap{
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 18px 14px 48px;
+    }
+
+    header{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      flex-wrap:wrap;
+      padding: 14px 14px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(6px);
+    }
+    .logos{
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .logos img{
+      height:38px;
+      width:auto;
+      display:block;
+    }
+    h1{
+      margin:0;
+      font-size: 22px;
+      letter-spacing:.2px;
+    }
+    .spacer{ flex: 1; }
+    .header-actions{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    .grid{
+      margin-top: 14px;
+      display:grid;
+      grid-template-columns: 420px 1fr;
+      gap:14px;
+    }
+    @media (max-width: 980px){
+      .grid{ grid-template-columns: 1fr; }
+    }
+
+    .card{
+      background: var(--card);
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(6px);
+      padding: 14px;
+    }
+
+    .card h2{
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+
+    label{ display:block; font-size: 12px; opacity:.85; margin: 10px 0 6px; }
+    input, select, textarea{
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.92);
+      outline: none;
+      font-size: 14px;
+    }
+    textarea{ min-height: 84px; resize: vertical; }
+
+    .row{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .row3{
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+    }
+
+    .btn{
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,.92);
+      cursor: pointer;
+      font-weight: 650;
+      font-size: 14px;
+    }
+    .btn:hover{ filter: brightness(.98); }
+    .btn-primary{
+      background: rgba(17,17,17,.92);
+      color: white;
+      border-color: rgba(0,0,0,.25);
+    }
+    .btn-danger{
+      background: rgba(180, 32, 32, .92);
+      color: white;
+      border-color: rgba(0,0,0,.20);
+    }
+    .btn-secondary{
+      background: rgba(255,255,255,.72);
+    }
+
+    .toolbar{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+      margin: 8px 0 10px;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(255,255,255,.75);
+      font-size: 12px;
+    }
+
+    .list{
+      display:flex;
+      flex-direction: column;
+      gap:10px;
+    }
+
+    .item{
+      background: var(--card2);
+      border:1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+    }
+    .item-top{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      flex-wrap:wrap;
+    }
+    .code{
+      font-weight: 800;
+      font-size: 14px;
+    }
+    .meta{
+      font-size: 12px;
+      opacity: .85;
+    }
+    .desc{
+      margin: 8px 0 0;
+      white-space: pre-wrap;
+      line-height: 1.25;
+    }
+    .item-actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top: 10px;
+    }
+
+    .badge{
+      font-size: 11px;
+      font-weight: 750;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.65);
+    }
+
+    .status-por_fazer{ }
+    .status-em_curso{ }
+    .status-aguardar_pecas{ }
+    .status-concluido{ }
+    .status-cancelado{ }
+
+    .toast{
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      background: rgba(20,20,20,.92);
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-size: 13px;
+      box-shadow: 0 12px 30px rgba(0,0,0,.25);
+      display:none;
+      z-index: 9999;
+      max-width: 92vw;
+    }
+
+    /* Admin modal */
+    .modal{position:fixed;inset:0;z-index:9999;display:none;}
+    .modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.45);}
+    .modal-card{
+      position:relative;
+      max-width:520px;
+      margin:10vh auto;
+      background:rgba(255,255,255,.95);
+      backdrop-filter:blur(6px);
+      border-radius:14px;
+      padding:16px 16px 12px;
+      box-shadow:0 12px 40px rgba(0,0,0,.25);
+      border:1px solid rgba(0,0,0,.10);
+    }
+    .modal-title{font-size:18px;font-weight:800;margin:0 0 8px;}
+    .modal-text{font-size:14px;line-height:1.35;margin:0 0 12px;}
+    .modal-label{display:block;font-size:13px;margin:8px 0 6px;}
+    .modal-input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid rgba(0,0,0,.2);font-size:15px;}
+    .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px;}
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logos">
+        <img src="logo_cp.png" alt="CP" />
+        <img src="logo_metroporto.png" alt="Metro do Porto" />
+      </div>
+      <h1>Serviços Pendentes</h1>
+      <div class="spacer"></div>
+      <div class="header-actions">
+        <button id="adminBtn" class="btn btn-secondary" type="button" title="Definir/alterar PIN admin">Admin</button>
+        <button id="refreshBtn" class="btn btn-secondary" type="button">Atualizar</button>
+        <button id="cleanupBtn" class="btn btn-secondary" type="button">Apagar >30 dias</button>
+      </div>
+    </header>
+
+    <div class="grid">
+      <!-- FORM -->
+      <section class="card">
+        <h2>Novo registo</h2>
+
+        <div class="row">
+          <div>
+            <label>Tipo de veículo</label>
+            <select id="vehicleType">
+              <option value="ET">Eurotram (ET)</option>
+              <option value="TT">Tram train (TT)</option>
+              <option value="CT">CT</option>
+            </select>
+          </div>
+          <div>
+            <label>Número</label>
+            <select id="vehicleNumber"></select>
+          </div>
+        </div>
+
+        <label>Descrição (avaria / trabalho)</label>
+        <textarea id="description" placeholder="Ex: Luz cabine intermitente / Porta 2 não fecha / etc"></textarea>
+
+        <div class="row3">
+          <div>
+            <label>Prioridade</label>
+            <select id="priority">
+              <option value="baixa">Baixa</option>
+              <option value="media" selected>Média</option>
+              <option value="alta">Alta</option>
+            </select>
+          </div>
+          <div>
+            <label>Estado</label>
+            <select id="status">
+              <option value="por_fazer" selected>Por fazer</option>
+              <option value="em_curso">Em curso</option>
+              <option value="aguardar_pecas">Aguardar peças</option>
+              <option value="concluido">Concluído</option>
+              <option value="cancelado">Cancelado</option>
+            </select>
+          </div>
+          <div>
+            <label>Turno</label>
+            <select id="shift">
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+              <option value="Noite">Noite</option>
+              <option value="Outro" selected>Outro</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Aberto por</label>
+            <input id="openedBy" placeholder="Nome / Equipa" />
+          </div>
+          <div>
+            <label>&nbsp;</label>
+            <button id="createBtn" class="btn btn-primary" type="button">Registar</button>
+          </div>
+        </div>
+
+        <hr style="border:none;border-top:1px solid rgba(0,0,0,.10); margin:14px 0;">
+
+        <h2>Filtros</h2>
+        <div class="toolbar">
+          <input id="q" placeholder="Pesquisar (ET07, porta, etc)" />
+          <select id="fType">
+            <option value="">Tipo (todos)</option>
+            <option value="ET">ET</option>
+            <option value="TT">TT</option>
+            <option value="CT">CT</option>
+          </select>
+          <select id="fStatus">
+            <option value="">Estado (todos)</option>
+            <option value="por_fazer">Por fazer</option>
+            <option value="em_curso">Em curso</option>
+            <option value="aguardar_pecas">Aguardar peças</option>
+            <option value="concluido">Concluído</option>
+            <option value="cancelado">Cancelado</option>
+          </select>
+          <select id="fPriority">
+            <option value="">Prioridade (todas)</option>
+            <option value="alta">Alta</option>
+            <option value="media">Média</option>
+            <option value="baixa">Baixa</option>
+          </select>
+          <select id="fShift">
+            <option value="">Turno (todos)</option>
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+            <option value="Noite">Noite</option>
+            <option value="Outro">Outro</option>
+          </select>
+        </div>
+
+        <div class="pill">
+          <span><b>Nota:</b> para editar/fechar/apagar é necessário PIN (botão Admin).</span>
+        </div>
+      </section>
+
+      <!-- LIST -->
+      <section class="card">
+        <h2>Registos</h2>
+        <div id="counts" class="meta" style="margin-bottom:10px;"></div>
+        <div id="list" class="list"></div>
+      </section>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <!-- Admin PIN Modal -->
+  <div id="adminModal" class="modal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card">
+      <div class="modal-title">PIN Admin</div>
+      <div class="modal-text">
+        Este PIN permite <b>editar / fechar / apagar</b> registos.
+        Fica apenas nesta sessão do browser.
+      </div>
+      <label class="modal-label" for="adminPinInput">PIN</label>
+      <input id="adminPinInput" class="modal-input" type="password" inputmode="numeric" placeholder="Ex: 4837" />
+      <div class="modal-actions">
+        <button id="adminModalCancel" class="btn btn-secondary" type="button">Cancelar</button>
+        <button id="adminModalSave" class="btn btn-primary" type="button">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /***************
+     *  SUPABASE
+     ***************/
+    const SUPABASE_URL = 'COLOCA_AQUI_A_TUA_PROJECT_URL';
+    const SUPABASE_ANON_KEY = 'COLOCA_AQUI_A_TUA_ANON_PUBLIC_KEY';
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    /***************
+     *  HELPERS
+     ***************/
+    const $ = (id)=>document.getElementById(id);
+    function pad2(n){ return String(n).padStart(2,'0'); }
+
+    function toast(msg){
+      const el = $('toast');
+      el.textContent = msg;
+      el.style.display = 'block';
+      clearTimeout(toast._t);
+      toast._t = setTimeout(()=>{ el.style.display='none'; }, 2600);
+    }
+
+    function vehicleMax(type){
+      if(type==='ET') return 72;
+      if(type==='TT') return 30;
+      return 18; // CT
+    }
+    function vehicleCode(type, num){
+      return `${type}${pad2(num)}`;
+    }
+
+    function fillVehicleNumbers(){
+      const type = $('vehicleType').value;
+      const max = vehicleMax(type);
+      const sel = $('vehicleNumber');
+      sel.innerHTML = '';
+      for(let i=1;i<=max;i++){
+        const o = document.createElement('option');
+        o.value = String(i);
+        o.textContent = pad2(i);
+        sel.appendChild(o);
+      }
+    }
+
+    function esc(s){ return (s ?? '').toString(); }
+
+    function fmtDate(iso){
+      if(!iso) return '';
+      const d = new Date(iso);
+      return d.toLocaleString('pt-PT');
+    }
+
+    /**********************
+     *  ADMIN PIN (client)
+     **********************/
+    const ADMIN_PIN_KEY = 'sp_admin_pin';
+    function getAdminPin(){ return sessionStorage.getItem(ADMIN_PIN_KEY) || ''; }
+    function setAdminPin(pin){
+      if(!pin) sessionStorage.removeItem(ADMIN_PIN_KEY);
+      else sessionStorage.setItem(ADMIN_PIN_KEY, pin);
+    }
+    function openAdminModal(prefill=''){
+      $('adminPinInput').value = prefill || '';
+      $('adminModal').style.display='block';
+      setTimeout(()=>$('adminPinInput').focus(), 50);
+    }
+    function closeAdminModal(){ $('adminModal').style.display='none'; }
+    async function requireAdminPin(){
+      const existing = getAdminPin();
+      if(existing) return existing;
+
+      return new Promise((resolve, reject)=>{
+        openAdminModal('');
+        const save = $('adminModalSave');
+        const cancel = $('adminModalCancel');
+
+        const cleanup = ()=>{
+          save.removeEventListener('click', onSave);
+          cancel.removeEventListener('click', onCancel);
+        };
+        const onCancel = ()=>{
+          cleanup(); closeAdminModal();
+          reject(new Error('PIN admin necessário'));
+        };
+        const onSave = ()=>{
+          const pin = ($('adminPinInput').value || '').trim();
+          if(!pin) return;
+          setAdminPin(pin);
+          cleanup(); closeAdminModal();
+          resolve(pin);
+        };
+
+        save.addEventListener('click', onSave);
+        cancel.addEventListener('click', onCancel);
+      });
+    }
+
+    /**********************
+     *  API (Vercel)
+     **********************/
+    async function apiUpdateTask(id, updates){
+      const pin = await requireAdminPin();
+      const res = await fetch('/api/updateTask', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ pin, id, updates })
+      });
+      if(!res.ok) throw new Error(await res.text());
+      return await res.json();
+    }
+
+    async function apiDeleteTask(id){
+      const pin = await requireAdminPin();
+      const res = await fetch('/api/deleteTask', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ pin, id })
+      });
+      if(!res.ok) throw new Error(await res.text());
+      return await res.json();
+    }
+
+    async function apiCleanupOld(){
+      const pin = await requireAdminPin();
+      const res = await fetch('/api/cleanupOld', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ pin })
+      });
+      if(!res.ok) throw new Error(await res.text());
+      return await res.json();
+    }
+
+    /**********************
+     *  CRUD
+     **********************/
+    async function loadTasks(){
+      // últimos 30 dias
+      const since = new Date(Date.now() - 30*24*60*60*1000).toISOString();
+
+      const { data, error } = await supabase
+        .from('maintenance_tasks')
+        .select('*')
+        .gte('created_at', since)
+        .order('created_at', { ascending: false });
+
+      if(error){
+        console.error(error);
+        toast('Erro a carregar dados');
+        return [];
+      }
+      return data || [];
+    }
+
+    async function createTask(payload){
+      const { data, error } = await supabase
+        .from('maintenance_tasks')
+        .insert(payload)
+        .select('*')
+        .single();
+
+      if(error){
+        console.error(error);
+        toast('Erro a registar');
+        return null;
+      }
+      return data;
+    }
+
+    /**********************
+     *  UI
+     **********************/
+    function applyFilters(tasks){
+      const q = ($('q').value || '').trim().toLowerCase();
+      const fType = $('fType').value;
+      const fStatus = $('fStatus').value;
+      const fPriority = $('fPriority').value;
+      const fShift = $('fShift').value;
+
+      return tasks.filter(t=>{
+        if(fType && t.vehicle_type !== fType) return false;
+        if(fStatus && t.status !== fStatus) return false;
+        if(fPriority && t.priority !== fPriority) return false;
+        if(fShift && t.shift !== fShift) return false;
+
+        if(q){
+          const blob = [
+            t.vehicle_code, t.description, t.opened_by, t.closed_by,
+            t.shift, t.status, t.priority
+          ].join(' ').toLowerCase();
+          if(!blob.includes(q)) return false;
+        }
+        return true;
+      });
+    }
+
+    function renderCounts(tasks){
+      const total = tasks.length;
+      const byStatus = (s)=>tasks.filter(t=>t.status===s).length;
+      $('counts').textContent =
+        `Total (últimos 30 dias): ${total} | ` +
+        `Por fazer: ${byStatus('por_fazer')} | ` +
+        `Em curso: ${byStatus('em_curso')} | ` +
+        `Aguardar peças: ${byStatus('aguardar_pecas')} | ` +
+        `Concluído: ${byStatus('concluido')} | ` +
+        `Cancelado: ${byStatus('cancelado')}`;
+    }
+
+    function statusLabel(s){
+      switch(s){
+        case 'por_fazer': return 'Por fazer';
+        case 'em_curso': return 'Em curso';
+        case 'aguardar_pecas': return 'Aguardar peças';
+        case 'concluido': return 'Concluído';
+        case 'cancelado': return 'Cancelado';
+        default: return s;
+      }
+    }
+
+    function priorityLabel(p){
+      if(p==='alta') return 'Alta';
+      if(p==='media') return 'Média';
+      return 'Baixa';
+    }
+
+    function renderList(tasks){
+      const list = $('list');
+      list.innerHTML = '';
+
+      if(!tasks.length){
+        const empty = document.createElement('div');
+        empty.className = 'meta';
+        empty.textContent = 'Sem registos para mostrar.';
+        list.appendChild(empty);
+        return;
+      }
+
+      for(const t of tasks){
+        const item = document.createElement('div');
+        item.className = 'item';
+
+        item.innerHTML = `
+          <div class="item-top">
+            <div style="min-width:120px;">
+              <div class="code">${esc(t.vehicle_code)}</div>
+              <div class="meta">${esc(t.vehicle_type)} · Nº ${pad2(t.vehicle_number)}</div>
+            </div>
+            <div style="flex:1;">
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                <span class="badge">${statusLabel(t.status)}</span>
+                <span class="badge">Prioridade: ${priorityLabel(t.priority)}</span>
+                <span class="badge">Turno: ${esc(t.shift)}</span>
+              </div>
+              <div class="meta" style="margin-top:6px;">
+                Aberto por <b>${esc(t.opened_by)}</b> em ${fmtDate(t.created_at)}
+                ${t.closed_at ? ` · Fechado por <b>${esc(t.closed_by || '')}</b> em ${fmtDate(t.closed_at)}` : ''}
+              </div>
+              <div class="desc">${esc(t.description)}</div>
+              ${t.closing_notes ? `<div class="meta" style="margin-top:8px;"><b>Obs:</b> ${esc(t.closing_notes)}</div>` : ''}
+            </div>
+          </div>
+
+          <div class="item-actions">
+            <button class="btn btn-secondary" data-act="edit" data-id="${t.id}">Editar</button>
+            <button class="btn btn-secondary" data-act="close" data-id="${t.id}">Dar baixa</button>
+            <button class="btn btn-danger" data-act="delete" data-id="${t.id}">Apagar</button>
+          </div>
+        `;
+
+        list.appendChild(item);
+      }
+    }
+
+    async function refresh(){
+      const all = await loadTasks();
+      window.__tasks = all;
+      const filtered = applyFilters(all);
+      renderCounts(all);
+      renderList(filtered);
+    }
+
+    async function onCreate(){
+      const vehicle_type = $('vehicleType').value;
+      const vehicle_number = parseInt($('vehicleNumber').value, 10);
+      const vehicle_code = vehicleCode(vehicle_type, vehicle_number);
+
+      const description = ($('description').value || '').trim();
+      const priority = $('priority').value;
+      const status = $('status').value;
+      const shift = $('shift').value;
+      const opened_by = ($('openedBy').value || '').trim();
+
+      if(!description){ toast('Descrição em falta'); return; }
+      if(!opened_by){ toast('Aberto por em falta'); return; }
+
+      const payload = {
+        vehicle_type, vehicle_number, vehicle_code,
+        description, priority, status, shift,
+        opened_by
+      };
+
+      const created = await createTask(payload);
+      if(created){
+        $('description').value = '';
+        toast('Registado');
+        await refresh();
+      }
+    }
+
+    async function onListClick(e){
+      const btn = e.target.closest('button[data-act]');
+      if(!btn) return;
+      const act = btn.dataset.act;
+      const id = btn.dataset.id;
+      const t = (window.__tasks || []).find(x=>String(x.id)===String(id));
+      if(!t) return;
+
+      try{
+        if(act==='delete'){
+          if(!confirm(`Apagar o registo ${t.vehicle_code}?`)) return;
+          await apiDeleteTask(t.id);
+          toast('Apagado');
+          await refresh();
+          return;
+        }
+
+        if(act==='edit'){
+          const newDesc = prompt('Editar descrição:', t.description || '');
+          if(newDesc===null) return;
+
+          const newStatus = prompt(
+            'Estado (por_fazer / em_curso / aguardar_pecas / concluido / cancelado):',
+            t.status
+          );
+          if(newStatus===null) return;
+
+          const newPriority = prompt('Prioridade (baixa / media / alta):', t.priority);
+          if(newPriority===null) return;
+
+          await apiUpdateTask(t.id, {
+            description: newDesc,
+            status: newStatus,
+            priority: newPriority
+          });
+
+          toast('Atualizado');
+          await refresh();
+          return;
+        }
+
+        if(act==='close'){
+          const closed_by = prompt('Fechado por (nome/equipa):', '') ?? '';
+          if(!closed_by.trim()){ toast('Fechado por em falta'); return; }
+
+          const closing_notes = prompt('Observações de fecho (opcional):', '') ?? '';
+
+          await apiUpdateTask(t.id, {
+            status: 'concluido',
+            closed_by: closed_by.trim(),
+            closing_notes: closing_notes.trim(),
+            closed_at: new Date().toISOString()
+          });
+
+          toast('Dado baixa');
+          await refresh();
+          return;
+        }
+      }catch(err){
+        console.error(err);
+        toast(String(err?.message || err));
+      }
+    }
+
+    /**********************
+     *  INIT
+     **********************/
+    document.addEventListener('DOMContentLoaded', async ()=>{
+      fillVehicleNumbers();
+
+      $('vehicleType').addEventListener('change', fillVehicleNumbers);
+      $('createBtn').addEventListener('click', onCreate);
+      $('refreshBtn').addEventListener('click', refresh);
+      $('cleanupBtn').addEventListener('click', async ()=>{
+        try{
+          if(!confirm('Apagar registos com mais de 30 dias?')) return;
+          await apiCleanupOld();
+          toast('Limpeza feita');
+          await refresh();
+        }catch(err){
+          console.error(err);
+          toast(String(err?.message || err));
+        }
+      });
+
+      // filtros
+      ['q','fType','fStatus','fPriority','fShift'].forEach(id=>{
+        $(id).addEventListener('input', ()=> {
+          const filtered = applyFilters(window.__tasks || []);
+          renderList(filtered);
+        });
+        $(id).addEventListener('change', ()=> {
+          const filtered = applyFilters(window.__tasks || []);
+          renderList(filtered);
+        });
+      });
+
+      $('list').addEventListener('click', onListClick);
+
+      // Admin modal
+      $('adminBtn').addEventListener('click', ()=> openAdminModal(getAdminPin()));
+      $('adminModalCancel').addEventListener('click', closeAdminModal);
+      $('adminModalSave').addEventListener('click', ()=>{
+        const pin = ($('adminPinInput').value || '').trim();
+        if(!pin){ toast('PIN em falta'); return; }
+        setAdminPin(pin);
+        closeAdminModal();
+        toast('PIN guardado nesta sessão');
+      });
+      $('adminModal').addEventListener('click', (e)=>{
+        if(e.target.classList.contains('modal-backdrop')) closeAdminModal();
+      });
+
+      await refresh();
+    });
+  </script>
+</body>
+</html>
