@@ -412,8 +412,8 @@
     const SUPABASE_URL = 'https://htlwkqdhkzxerlfipmif.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable___5-sXHllFkoNx2hBP2-ZA_MiKYDIM-';
 
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
+    const sb = (window.supabase ?? supabase);
+    const supabaseClient = sb.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     /***************
      *  HELPERS
      ***************/
@@ -834,3 +834,4 @@
 </body>
 
 </html>
+
