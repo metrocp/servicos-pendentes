@@ -267,7 +267,7 @@
       <div class="header-actions">
         <button id="adminBtn" class="btn btn-secondary" type="button" title="Definir/alterar PIN admin">Admin</button>
         <button id="refreshBtn" class="btn btn-secondary" type="button">Atualizar</button>
-        <button id="cleanupBtn" class="btn btn-secondary" type="button">Apagar >30 dias</button>
+        <button id="cleanupBtn" class="btn btn-secondary" type="button">Apagar concluídos >30 dias</button>
       </div>
     </header>
 
@@ -294,33 +294,21 @@
         <label>Descrição (avaria / trabalho)</label>
         <textarea id="description" placeholder="Ex: Luz cabine intermitente / Porta 2 não fecha / etc"></textarea>
 
-        <div class="row3">
-          <div>
-            <label>Prioridade</label>
-            <select id="priority">
-              <option value="baixa">Baixa</option>
-              <option value="media" selected>Média</option>
-              <option value="alta">Alta</option>
-            </select>
-          </div>
+        <div class="row">
           <div>
             <label>Estado</label>
             <select id="status">
-              <option value="por_fazer" selected>Por fazer</option>
-              <option value="em_curso">Em curso</option>
-              <option value="aguardar_pecas">Aguardar peças</option>
+              <option value="aguarda_stock" selected>Aguarda Stock</option>
+              <option value="aguarda_mao_obra">Aguarda Mão de obra</option>
               <option value="concluido">Concluído</option>
-              <option value="cancelado">Cancelado</option>
             </select>
           </div>
           <div>
             <label>Turno</label>
             <select id="shift">
-              <option value="A">A</option>
-              <option value="B">B</option>
-              <option value="C">C</option>
+              <option value="Manhã" selected>Manhã</option>
+              <option value="Tarde">Tarde</option>
               <option value="Noite">Noite</option>
-              <option value="Outro" selected>Outro</option>
             </select>
           </div>
         </div>
@@ -340,35 +328,13 @@
 
         <h2>Filtros</h2>
         <div class="toolbar">
-          <input id="q" placeholder="Pesquisar (ET07, porta, etc)" />
           <select id="fType">
             <option value="">Tipo (todos)</option>
             <option value="ET">ET</option>
             <option value="TT">TT</option>
             <option value="CT">CT</option>
           </select>
-          <select id="fStatus">
-            <option value="">Estado (todos)</option>
-            <option value="por_fazer">Por fazer</option>
-            <option value="em_curso">Em curso</option>
-            <option value="aguardar_pecas">Aguardar peças</option>
-            <option value="concluido">Concluído</option>
-            <option value="cancelado">Cancelado</option>
-          </select>
-          <select id="fPriority">
-            <option value="">Prioridade (todas)</option>
-            <option value="alta">Alta</option>
-            <option value="media">Média</option>
-            <option value="baixa">Baixa</option>
-          </select>
-          <select id="fShift">
-            <option value="">Turno (todos)</option>
-            <option value="A">A</option>
-            <option value="B">B</option>
-            <option value="C">C</option>
-            <option value="Noite">Noite</option>
-            <option value="Outro">Outro</option>
-          </select>
+          <input id="q" placeholder="Pesquisar por número (ex: 001, 101, 218)" />
         </div>
 
         <div class="pill">
@@ -413,6 +379,7 @@
     const SUPABASE_ANON_KEY = 'sb_publishable___5-sXHllFkoNx2hBP2-ZA_MiKYDIM-';
 
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
     /***************
      *  HELPERS
      ***************/
@@ -427,24 +394,25 @@
       toast._t = setTimeout(()=>{ el.style.display='none'; }, 2600);
     }
 
-    function vehicleMax(type){
-      if(type==='ET') return 72;
-      if(type==='TT') return 30;
-      return 18; // CT
+    function vehicleRange(type){
+      if(type==='ET') return { start: 1, end: 72 };
+      if(type==='TT') return { start: 101, end: 130 };
+      return { start: 201, end: 218 }; // CT
     }
+
     function vehicleCode(type, num){
-      return `${type}${pad2(num)}`;
+      return `${type}${String(num).padStart(3,'0')}`;
     }
 
     function fillVehicleNumbers(){
       const type = $('vehicleType').value;
-      const max = vehicleMax(type);
+      const { start, end } = vehicleRange(type);
       const sel = $('vehicleNumber');
       sel.innerHTML = '';
-      for(let i=1;i<=max;i++){
+      for(let i=start;i<=end;i++){
         const o = document.createElement('option');
         o.value = String(i);
-        o.textContent = pad2(i);
+        o.textContent = String(i).padStart(3,'0');
         sel.appendChild(o);
       }
     }
@@ -545,8 +513,8 @@
       // últimos 30 dias
       const since = new Date(Date.now() - 30*24*60*60*1000).toISOString();
 
-     const { data, error } = await supabaseClient
-  .from('maintenance_tasks')
+      const { data, error } = await supabaseClient
+        .from('maintenance_tasks')
         .select('*')
         .gte('created_at', since)
         .order('created_at', { ascending: false });
@@ -560,8 +528,8 @@
     }
 
     async function createTask(payload){
-   const { data, error } = await supabaseClient
-  .from('maintenance_tasks')
+      const { data, error } = await supabaseClient
+        .from('maintenance_tasks')
         .insert(payload)
         .select('*')
         .single();
@@ -580,22 +548,13 @@
     function applyFilters(tasks){
       const q = ($('q').value || '').trim().toLowerCase();
       const fType = $('fType').value;
-      const fStatus = $('fStatus').value;
-      const fPriority = $('fPriority').value;
-      const fShift = $('fShift').value;
 
       return tasks.filter(t=>{
         if(fType && t.vehicle_type !== fType) return false;
-        if(fStatus && t.status !== fStatus) return false;
-        if(fPriority && t.priority !== fPriority) return false;
-        if(fShift && t.shift !== fShift) return false;
 
         if(q){
-          const blob = [
-            t.vehicle_code, t.description, t.opened_by, t.closed_by,
-            t.shift, t.status, t.priority
-          ].join(' ').toLowerCase();
-          if(!blob.includes(q)) return false;
+          const numberText = String(t.vehicle_number || '').padStart(3, '0').toLowerCase();
+          if(!numberText.includes(q)) return false;
         }
         return true;
       });
@@ -606,28 +565,18 @@
       const byStatus = (s)=>tasks.filter(t=>t.status===s).length;
       $('counts').textContent =
         `Total (últimos 30 dias): ${total} | ` +
-        `Por fazer: ${byStatus('por_fazer')} | ` +
-        `Em curso: ${byStatus('em_curso')} | ` +
-        `Aguardar peças: ${byStatus('aguardar_pecas')} | ` +
-        `Concluído: ${byStatus('concluido')} | ` +
-        `Cancelado: ${byStatus('cancelado')}`;
+        `Aguarda Stock: ${byStatus('aguarda_stock')} | ` +
+        `Aguarda Mão de obra: ${byStatus('aguarda_mao_obra')} | ` +
+        `Concluído: ${byStatus('concluido')}`;
     }
 
     function statusLabel(s){
       switch(s){
-        case 'por_fazer': return 'Por fazer';
-        case 'em_curso': return 'Em curso';
-        case 'aguardar_pecas': return 'Aguardar peças';
+        case 'aguarda_stock': return 'Aguarda Stock';
+        case 'aguarda_mao_obra': return 'Aguarda Mão de obra';
         case 'concluido': return 'Concluído';
-        case 'cancelado': return 'Cancelado';
         default: return s;
       }
-    }
-
-    function priorityLabel(p){
-      if(p==='alta') return 'Alta';
-      if(p==='media') return 'Média';
-      return 'Baixa';
     }
 
     function renderList(tasks){
@@ -650,12 +599,11 @@
           <div class="item-top">
             <div style="min-width:120px;">
               <div class="code">${esc(t.vehicle_code)}</div>
-              <div class="meta">${esc(t.vehicle_type)} · Nº ${pad2(t.vehicle_number)}</div>
+              <div class="meta">${esc(t.vehicle_type)} · Nº ${String(t.vehicle_number).padStart(3,'0')}</div>
             </div>
             <div style="flex:1;">
               <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                 <span class="badge">${statusLabel(t.status)}</span>
-                <span class="badge">Prioridade: ${priorityLabel(t.priority)}</span>
                 <span class="badge">Turno: ${esc(t.shift)}</span>
               </div>
               <div class="meta" style="margin-top:6px;">
@@ -692,7 +640,6 @@
       const vehicle_code = vehicleCode(vehicle_type, vehicle_number);
 
       const description = ($('description').value || '').trim();
-      const priority = $('priority').value;
       const status = $('status').value;
       const shift = $('shift').value;
       const opened_by = ($('openedBy').value || '').trim();
@@ -701,8 +648,12 @@
       if(!opened_by){ toast('Aberto por em falta'); return; }
 
       const payload = {
-        vehicle_type, vehicle_number, vehicle_code,
-        description, priority, status, shift,
+        vehicle_type,
+        vehicle_number,
+        vehicle_code,
+        description,
+        status,
+        shift,
         opened_by
       };
 
@@ -736,18 +687,14 @@
           if(newDesc===null) return;
 
           const newStatus = prompt(
-            'Estado (por_fazer / em_curso / aguardar_pecas / concluido / cancelado):',
+            'Estado (aguarda_stock / aguarda_mao_obra / concluido):',
             t.status
           );
           if(newStatus===null) return;
 
-          const newPriority = prompt('Prioridade (baixa / media / alta):', t.priority);
-          if(newPriority===null) return;
-
           await apiUpdateTask(t.id, {
             description: newDesc,
-            status: newStatus,
-            priority: newPriority
+            status: newStatus
           });
 
           toast('Atualizado');
@@ -789,7 +736,7 @@
       $('refreshBtn').addEventListener('click', refresh);
       $('cleanupBtn').addEventListener('click', async ()=>{
         try{
-          if(!confirm('Apagar registos com mais de 30 dias?')) return;
+          if(!confirm('Apagar registos concluídos com mais de 30 dias?')) return;
           await apiCleanupOld();
           toast('Limpeza feita');
           await refresh();
@@ -799,8 +746,7 @@
         }
       });
 
-      // filtros
-      ['q','fType','fStatus','fPriority','fShift'].forEach(id=>{
+      ['q','fType'].forEach(id=>{
         $(id).addEventListener('input', ()=> {
           const filtered = applyFilters(window.__tasks || []);
           renderList(filtered);
@@ -813,7 +759,6 @@
 
       $('list').addEventListener('click', onListClick);
 
-      // Admin modal
       $('adminBtn').addEventListener('click', ()=> openAdminModal(getAdminPin()));
       $('adminModalCancel').addEventListener('click', closeAdminModal);
       $('adminModalSave').addEventListener('click', ()=>{
@@ -831,8 +776,6 @@
     });
   </script>
 </body>
-
 </html>
-
-
-
+  
+   
